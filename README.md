@@ -32,47 +32,6 @@ they would offer a principled mechanism for tuning evolutionary search on a
 broad class of problems; if they do not, characterising the failure would
 itself clarify the boundary of the existing theory.
 
-## Objectives
-
-1. Establish a precise entry point: determine what the existing literature has
-   proven and implemented, what it has not, and the concrete step from which
-   this project proceeds.
-2. Build a reproducible experimental platform: benchmark instances, an
-   evaluation protocol and a runnable harness producing comparable results.
-3. Design steady-state EA variants for permutation problems with controllable
-   selective pressure.
-4. Evaluate them against existing algorithms under a common protocol and
-   report the resulting evidence.
-
-## Methodology
-
-The project follows the steady-state EA framework and its measure of selective
-pressure established for Pseudo-Boolean optimisation, and extends it to
-permutation encodings. Work combines theoretical reasoning with controlled
-experiments: selection and variation operators are chosen to expose the
-exploration/exploitation trade-off, and performance is measured by the gap to
-known optima under fixed evaluation budgets, with statistical comparison across
-independent runs.
-
-## Phase 1: Entry Point and Test Platform
-
-Phase 1 spans the first week and addresses Objectives 1 and 2.
-
-**Task 1 - Find the entry point.** Reconstruct the steady-state model and its
-notation, separate what is proven from what is observed or conjectured, examine
-the dependence of each result on the Pseudo-Boolean representation, and survey
-the permutation-side literature. The output is a concise entry-point note
-stating the research gap and a concrete first experiment.
-
-**Task 2 - Build the test platform.** Select benchmark instances (TSPLIB;
-QAPLIB and random uniform instances if a broader claim is required), define an
-evaluation standard (gap to optimum, fixed budget, independent runs,
-significance testing) and implement a seeded, reproducible harness with a
-machine-readable result format.
-
-The detailed schedule, tasks and deliverables are given in the project plan
-document.
-
 ## Repository Layout
 
 ```
