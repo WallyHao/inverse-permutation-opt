@@ -80,6 +80,21 @@ The formal five-instance suite is not frozen yet. The checked-in benchmark
 fixtures are development-only correctness inputs and must not be presented as
 the formal study data.
 
+Useful development commands are available through `just`:
+
+```sh
+just test
+just validate-benchmarks
+just smoke-plan
+PYTHONPATH=src python -m tsp_perm_ea_bench.cli.main batch \
+  --config configs/development-smoke.json
+```
+
+The batch runner records each task under a stable run identity, keeps failed
+attempts, and skips a run only after its completion marker and summary have
+both passed integrity checks. `summarize` rebuilds CSV tables and a standard
+library SVG from completed artifacts; failed attempts are listed separately.
+
 ## References
 
 1. D. Corus, A. Lissovoi, P. S. Oliveto, and C. Witt, "On steady-state

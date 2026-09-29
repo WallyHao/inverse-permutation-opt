@@ -147,6 +147,8 @@ def run_steady_state_ga(
             and context.best_value == problem.reference_value
         ):
             context.termination_reason = TerminationReason.OPTIMUM_REACHED
+        if context.termination_reason is None and context.exhausted:
+            context.finish_if_budget_exhausted()
 
         while context.termination_reason is None:
             values = [individual.value for individual in population]
