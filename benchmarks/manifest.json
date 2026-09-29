@@ -1,0 +1,37 @@
+{
+  "schema_version": "benchmark-manifest-v1",
+  "suite_id": "development",
+  "status": "development_only",
+  "instances": [
+    {
+      "instance_id": "triangle",
+      "file": "instances/triangle.tsp",
+      "dimension": 3,
+      "edge_weight_type": "EUC_2D",
+      "reference_status": "proven_optimum",
+      "reference_value": 3,
+      "reference_tour": [1, 2, 3],
+      "source": "version-controlled synthetic correctness fixture"
+    },
+    {
+      "instance_id": "square",
+      "file": "instances/square.tsp",
+      "dimension": 4,
+      "edge_weight_type": "EUC_2D",
+      "reference_status": "proven_optimum",
+      "reference_value": 4,
+      "reference_tour": [1, 2, 3, 4],
+      "source": "version-controlled synthetic correctness fixture"
+    },
+    {
+      "instance_id": "rounding-boundary",
+      "file": "instances/rounding-boundary.tsp",
+      "dimension": 3,
+      "edge_weight_type": "EUC_2D",
+      "reference_status": "unknown",
+      "reference_value": null,
+      "reference_tour": null,
+      "source": "version-controlled synthetic parser fixture"
+    }
+  ]
+}
