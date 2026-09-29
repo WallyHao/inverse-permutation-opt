@@ -5,7 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import random
-from dataclasses import asdict, dataclass
+import time
+from dataclasses import asdict, dataclass, field
 from typing import Any, Sequence
 
 from ..core.budget import (
@@ -38,6 +39,15 @@ class SteadyStateConfig:
     crossover: str = "ox"
     offspring_budget: int = 500_000
     stop_at_proven_optimum: bool = True
+    checkpoint_evaluations: tuple[int, ...] = (
+        1,
+        10,
+        100,
+        1_000,
+        10_000,
+        100_000,
+        500_000,
+    )
     protocol_version: str = "steady-state-ga-v1"
 
     def __post_init__(self) -> None:
@@ -49,6 +59,10 @@ class SteadyStateConfig:
             raise ValueError("mutation_probability must be in [0, 1]")
         if self.offspring_budget < 0:
             raise ValueError("offspring_budget must be non-negative")
+        if any(point < 1 for point in self.checkpoint_evaluations):
+            raise ValueError("checkpoint_evaluations must contain positive values")
+        if tuple(sorted(set(self.checkpoint_evaluations))) != self.checkpoint_evaluations:
+            raise ValueError("checkpoint_evaluations must be sorted and unique")
         if self.crossover not in {"ox", "pmx", "erx", "sax"}:
             raise ValueError(f"unsupported crossover: {self.crossover}")
 
@@ -73,6 +87,8 @@ class RunResult:
     initial_population_hash: str
     population_edge_distance: float | None
     config: dict[str, Any]
+    wall_time: float = field(compare=False)
+    process_cpu_time: float = field(compare=False)
 
 
 @dataclass
@@ -109,6 +125,8 @@ def run_steady_state_ga(
     )
 
     population: list[_Individual] = []
+    wall_start = time.perf_counter()
+    cpu_start = time.process_time()
     next_identity = 0
     initial_tours: list[tuple[int, ...]] = []
     try:
@@ -203,7 +221,10 @@ def run_steady_state_ga(
                 )
             if context.exhausted:
                 context.finish_if_budget_exhausted()
-            if context.counters.iterations == 1 or context.exhausted:
+            if (
+                context.counters.offspring_evaluations in config.checkpoint_evaluations
+                or context.exhausted
+            ):
                 _emit_checkpoint(
                     observer,
                     context,
@@ -229,6 +250,7 @@ def run_steady_state_ga(
     run_id = make_run_id(
         instance_id=instance_id,
         repeat=repeat,
+        master_seed=master_seed,
         config=config_dict,
         protocol_version=config.protocol_version,
     )
@@ -244,6 +266,8 @@ def run_steady_state_ga(
         initial_population_hash=initial_hash,
         population_edge_distance=final_distance,
         config=config_dict,
+        wall_time=time.perf_counter() - wall_start,
+        process_cpu_time=time.process_time() - cpu_start,
     )
     observer.on_event(
         Event.from_context(
@@ -260,12 +284,17 @@ def run_steady_state_ga(
 
 
 def make_run_id(
-    *, instance_id: str, repeat: int, config: dict[str, Any], protocol_version: str
+    *,
+    instance_id: str,
+    repeat: int,
+    master_seed: int,
+    config: dict[str, Any],
+    protocol_version: str,
 ) -> str:
     """Create a stable identity from normalized run inputs."""
 
     payload = json.dumps(
-        [protocol_version, instance_id, repeat, config],
+        [protocol_version, instance_id, repeat, master_seed, config],
         sort_keys=True,
         separators=(",", ":"),
     ).encode("utf-8")
@@ -295,6 +324,8 @@ def _emit_checkpoint(
                 "label": label,
                 "population_best": min(values),
                 "population_mean": sum(values) / len(values),
+                "global_best": context.best_value,
+                "global_best_tour": list(context.best_tour or ()),
                 "population_edge_distance": exact_population_edge_distance(
                     [individual.tour for individual in population]
                 ),

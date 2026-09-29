@@ -1,0 +1,35 @@
+{
+  "schema_version": "experiment-spec-v1",
+  "experiment_id": "development-smoke",
+  "benchmark_manifest": "../benchmarks/manifest.json",
+  "instance_ids": [
+    "rounding-boundary"
+  ],
+  "crossovers": [
+    "ox",
+    "pmx",
+    "erx",
+    "sax"
+  ],
+  "replicates": [
+    {
+      "repeat": 0,
+      "master_seed": 1000
+    },
+    {
+      "repeat": 1,
+      "master_seed": 1001
+    }
+  ],
+  "population_size": 6,
+  "inverse_tournament_size": 2,
+  "mutation_probability": 0.05,
+  "offspring_budget": 12,
+  "stop_at_proven_optimum": true,
+  "checkpoint_evaluations": [
+    1,
+    4,
+    8,
+    12
+  ]
+}

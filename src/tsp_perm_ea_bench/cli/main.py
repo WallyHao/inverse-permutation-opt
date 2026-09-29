@@ -12,8 +12,12 @@ from ..algorithms.steady_state import (
     make_run_id,
     run_steady_state_ga,
 )
+from ..analysis.summarize import summarize_experiment
+from ..core.config import ExperimentSpec
 from ..observers.logger import RunLogger
+from ..problems.registry import InstanceRegistry
 from ..problems.tsp import ReferenceStatus, load_tsplib
+from ..runner.batch import BatchRunner
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -38,6 +42,17 @@ def build_parser() -> argparse.ArgumentParser:
         choices=tuple(status.value for status in ReferenceStatus),
         default=ReferenceStatus.UNKNOWN.value,
     )
+    validate_parser = subparsers.add_parser("validate", help="validate a benchmark manifest")
+    validate_parser.add_argument("--manifest", type=Path, required=True)
+    plan_parser = subparsers.add_parser("plan", help="preview expanded experiment tasks")
+    plan_parser.add_argument("--config", type=Path, required=True)
+    batch_parser = subparsers.add_parser("batch", help="run an experiment specification")
+    batch_parser.add_argument("--config", type=Path, required=True)
+    batch_parser.add_argument("--output-root", type=Path)
+    batch_parser.add_argument("--dry-run", action="store_true")
+    summary_parser = subparsers.add_parser("summarize", help="analyze completed run artifacts")
+    summary_parser.add_argument("--experiment-directory", type=Path, required=True)
+    summary_parser.add_argument("--output-directory", type=Path)
     return parser
 
 
@@ -47,6 +62,64 @@ def main(argv: list[str] | None = None) -> int:
     arguments = build_parser().parse_args(argv)
     if arguments.command == "run":
         return _run(arguments)
+    if arguments.command == "validate":
+        registry = InstanceRegistry.from_manifest(arguments.manifest)
+        print(json.dumps({"instances": registry.validate_all()}))
+        return 0
+    if arguments.command == "plan":
+        spec = ExperimentSpec.from_file(arguments.config)
+        registry = spec.validate()
+        del registry
+        print(
+            json.dumps(
+                {
+                    "experiment_id": spec.experiment_id,
+                    "task_count": len(spec.tasks()),
+                    "runs": [
+                        {
+                            "run_id": spec.run_id(task),
+                            "instance_id": task.instance_id,
+                            "crossover": task.crossover,
+                            "repeat": task.repeat,
+                            "master_seed": task.master_seed,
+                        }
+                        for task in spec.tasks()
+                    ],
+                }
+            )
+        )
+        return 0
+    if arguments.command == "batch":
+        spec = ExperimentSpec.from_file(arguments.config)
+        if arguments.dry_run:
+            spec.validate()
+            print(
+                json.dumps(
+                    {
+                        "experiment_id": spec.experiment_id,
+                        "task_count": len(spec.tasks()),
+                        "offspring_evaluations": len(spec.tasks()) * spec.offspring_budget,
+                        "output_root": str(arguments.output_root or "results"),
+                    }
+                )
+            )
+            return 0
+        repository_root = arguments.config.resolve().parents[1]
+        runner = BatchRunner(
+            spec,
+            repository_root=repository_root,
+            output_root=arguments.output_root,
+        )
+        tasks = runner.run()
+        print(json.dumps({"experiment_id": spec.experiment_id, "tasks": tasks}))
+        return 0
+    if arguments.command == "summarize":
+        output = summarize_experiment(
+            arguments.experiment_directory,
+            output_directory=arguments.output_directory,
+        )
+        print(json.dumps({"analysis_directory": str(output)}))
+        return 0
     raise AssertionError(f"unhandled command: {arguments.command}")
 
 
@@ -67,6 +140,7 @@ def _run(arguments: argparse.Namespace) -> int:
     run_id = make_run_id(
         instance_id=arguments.instance_id,
         repeat=arguments.repeat,
+        master_seed=arguments.seed,
         config=config.as_dict(),
         protocol_version=config.protocol_version,
     )
