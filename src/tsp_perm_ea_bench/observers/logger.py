@@ -15,8 +15,9 @@ from .events import Event
 class RunLogger:
     """Collect events and write a run directory with an atomic completion marker."""
 
-    def __init__(self, output_directory: str | Path) -> None:
+    def __init__(self, output_directory: str | Path, *, detailed_events: bool = False) -> None:
         self.output_directory = Path(output_directory)
+        self.detailed_events = detailed_events
         self.events: list[Event] = []
 
     def on_event(self, event: Event) -> None:
@@ -35,10 +36,12 @@ class RunLogger:
             "checkpoints.csv",
             [event for event in self.events if event.event_type == "checkpoint"],
         )
-        self._write_csv(
-            "events.csv",
-            [event for event in self.events if event.event_type == "offspring"],
-        )
+        self._write_operator_summary()
+        if self.detailed_events:
+            self._write_csv(
+                "events.csv",
+                [event for event in self.events if event.event_type == "offspring"],
+            )
         self._write_json("summary.json", _jsonable(result))
         self._write_json("best_tour.json", best_tour)
         self._write_json(
@@ -80,6 +83,61 @@ class RunLogger:
             temporary = Path(handle.name)
         os.replace(temporary, self.output_directory / filename)
 
+    def _write_operator_summary(self) -> None:
+        """Write mechanism aggregates without requiring per-offspring storage."""
+
+        grouped: dict[tuple[str, str], list[Event]] = {}
+        for event in self.events:
+            if event.event_type != "offspring":
+                continue
+            key = (str(event.payload.get("crossover")), str(event.payload.get("delegate") or ""))
+            grouped.setdefault(key, []).append(event)
+        rows: list[dict[str, Any]] = []
+        for (crossover_name, delegate), events in sorted(grouped.items()):
+            distances = [
+                event.payload["parent_edge_distance"]
+                for event in events
+                if event.payload.get("parent_edge_distance") is not None
+            ]
+            edge_values = [float(event.payload["edge_retention"]) for event in events]
+            position_values = [
+                float(event.payload["position_retention"]) for event in events
+            ]
+            mutation_count = sum(
+                bool(event.payload.get("mutation_applied")) for event in events
+            )
+            rows.append(
+                {
+                    "crossover": crossover_name,
+                    "delegate": delegate,
+                    "calls": len(events),
+                    "mean_parent_edge_distance": _mean(distances),
+                    "mean_edge_retention": _mean(edge_values),
+                    "mean_position_retention": _mean(position_values),
+                    "mutation_count": mutation_count,
+                    "mutation_rate": mutation_count / len(events),
+                }
+            )
+        fieldnames = [
+            "crossover",
+            "delegate",
+            "calls",
+            "mean_parent_edge_distance",
+            "mean_edge_retention",
+            "mean_position_retention",
+            "mutation_count",
+            "mutation_rate",
+        ]
+        temporary: Path
+        with tempfile.NamedTemporaryFile(
+            "w", encoding="utf-8", newline="", dir=self.output_directory, delete=False
+        ) as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+            temporary = Path(handle.name)
+        os.replace(temporary, self.output_directory / "operator_summary.csv")
+
 
 def _atomic_write(path: Path, content: str) -> None:
     with tempfile.NamedTemporaryFile(
@@ -100,3 +158,7 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, (tuple, list)):
         return [_jsonable(item) for item in value]
     return value
+
+
+def _mean(values: list[float]) -> float | None:
+    return None if not values else sum(values) / len(values)
