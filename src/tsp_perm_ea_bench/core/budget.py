@@ -95,6 +95,7 @@ class EvaluationContext:
         self.best_value: int | float | None = None
         self.best_tour: tuple[int, ...] | None = None
         self.termination_reason: TerminationReason | None = None
+        self._event_sequence = 0
 
     @property
     def offspring_budget_remaining(self) -> int:
@@ -120,7 +121,10 @@ class EvaluationContext:
         if phase is EvaluationPhase.OFFSPRING and self.exhausted:
             self.termination_reason = TerminationReason.BUDGET_EXHAUSTED
             raise BudgetExceeded("the offspring evaluation budget is exhausted")
-        if self.termination_reason is TerminationReason.OPTIMUM_REACHED:
+        if (
+            self.termination_reason is TerminationReason.OPTIMUM_REACHED
+            and phase is not EvaluationPhase.INITIALIZATION
+        ):
             raise BudgetExceeded("the run already reached its proven optimum")
 
         value = self.problem.evaluate(tour)
@@ -136,7 +140,7 @@ class EvaluationContext:
             and self.problem.reference_value is not None
             and value == self.problem.reference_value
         )
-        if reached_optimum:
+        if reached_optimum and phase is not EvaluationPhase.INITIALIZATION:
             self.termination_reason = TerminationReason.OPTIMUM_REACHED
 
         self.counters.validate()
@@ -153,6 +157,12 @@ class EvaluationContext:
 
         if self.exhausted and self.termination_reason is None:
             self.termination_reason = TerminationReason.BUDGET_EXHAUSTED
+
+    def next_event_sequence(self) -> int:
+        """Return the next monotonically increasing observer sequence number."""
+
+        self._event_sequence += 1
+        return self._event_sequence
 
     def _record_counter(self, phase: EvaluationPhase, *, use_delta: bool) -> None:
         if phase is EvaluationPhase.INITIALIZATION:
@@ -172,4 +182,3 @@ class EvaluationContext:
             self.counters.delta_calls += 1
         else:
             self.counters.full_objective_calls += 1
-

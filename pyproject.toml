@@ -9,6 +9,9 @@ description = "Auditable experiments for steady-state evolutionary algorithms on
 requires-python = ">=3.11"
 dependencies = []
 
+[project.scripts]
+tsp-perm-ea = "tsp_perm_ea_bench.cli.main:main"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 

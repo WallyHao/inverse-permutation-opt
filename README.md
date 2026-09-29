@@ -35,9 +35,14 @@ itself clarify the boundary of the existing theory.
 ## Repository Layout
 
 ```
-docs/     Project plan and report sources (Typst)
-output/   Compiled PDFs (generated, not tracked)
-justfile  Build recipes
+benchmarks/             Development instances and benchmark metadata
+configs/                Version-controlled experiment specifications
+docs/                   Project plan and report sources (Typst)
+src/tsp_perm_ea_bench/  Python problem, algorithm, and logging packages
+tests/                  Correctness and reproducibility tests
+output/                 Compiled PDFs (generated, not tracked)
+results/                Experiment artifacts (generated, not tracked)
+justfile                Build recipes
 ```
 
 ## Building
@@ -49,6 +54,31 @@ The documents are written in [Typst](https://typst.app/) and built with
 just compile   # compile every docs/*.typ into output/
 just clean     # remove generated output
 ```
+
+The experiment package has no runtime dependencies beyond Python 3.11. Run
+the platform checks from the repository root with:
+
+```sh
+PYTHONPATH=src python -m unittest discover -s tests -v
+```
+
+The first executable loop is a single controlled run. It writes a complete run
+directory and an atomic completion marker:
+
+```sh
+PYTHONPATH=src python -m tsp_perm_ea_bench.cli.main run \
+  --instance benchmarks/instances/square.tsp \
+  --instance-id square \
+  --output-directory results/smoke/runs \
+  --seed 1000 \
+  --repeat 0 \
+  --population-size 20 \
+  --offspring-budget 100
+```
+
+The formal five-instance suite is not frozen yet. The checked-in benchmark
+fixtures are development-only correctness inputs and must not be presented as
+the formal study data.
 
 ## References
 
